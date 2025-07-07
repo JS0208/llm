@@ -452,6 +452,14 @@
                 chatWindow.scrollTop = chatWindow.scrollHeight;
             }
 
+            function parseScoresText(text) {
+                const cleaned = text.trim()
+                    .replace(/^```(?:json)?\s*/i, '')
+                    .replace(/\s*```$/, '')
+                    .trim();
+                return JSON.parse(cleaned);
+            }
+
             async function startAnalysis() {
                 analysisScreen.classList.remove('hidden');
                 analysisScreen.classList.add('flex');
@@ -471,7 +479,7 @@
                     }
                     const data = await response.json();
                     const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-                    const scores = JSON.parse(jsonText);
+                    const scores = parseScoresText(jsonText);
                     renderAnalysis(scores);
                 } catch (e) {
                     analysisSummary.textContent = '분석 중 오류 발생: ' + e.message;
