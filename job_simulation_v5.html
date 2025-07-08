@@ -297,14 +297,18 @@
                 scrollToBottom();
             }
             
-            function toggleInput(mainInputEnabled, hintsAvailable) {
+            function toggleInput(mainInputEnabled, hintsAvailable, placeholder) {
                 messageInput.disabled = !mainInputEnabled;
                 submitButton.disabled = !mainInputEnabled;
                 showHintsButton.disabled = !hintsAvailable;
                 if (!mainInputEnabled || !hintsAvailable) {
                     hintButtonsContainer.innerHTML = '';
                 }
-                messageInput.placeholder = mainInputEnabled ? "어떻게 행동하시겠습니까?" : "게임이 종료되었습니다.";
+                if (placeholder !== undefined) {
+                    messageInput.placeholder = placeholder;
+                } else {
+                    messageInput.placeholder = mainInputEnabled ? "어떻게 행동하시겠습니까?" : "게임이 종료되었습니다.";
+                }
             }
 
             async function getLlmResponse() {
@@ -312,9 +316,8 @@
                     addMessage("오류: API 키가 설정되지 않았습니다. 스크립트 상단의 API_KEY 변수를 확인하세요."); 
                     return; 
                 }
-                toggleInput(false, false);
+                toggleInput(false, currentHints.length > 0, '답변 생성 중...');
                 toggleLoadingIndicator(true);
-                currentHints = [];
                 
                 try {
                     const response = await fetch(API_URL, { 
@@ -361,10 +364,11 @@
                         conversationHistory.push({ role: "model", parts: [{ text: storyText }] });
                     }
 
-                    let hintsAvailable = false;
+                    let hintsAvailable = currentHints.length > 0;
                     if (hintSplit.length > 1) {
-                        currentHints = hintSplit[1].trim().split(/\d\.\s*/).filter(Boolean).map(h => h.trim());
-                        if (currentHints.length > 0) {
+                        const newHints = hintSplit[1].trim().split(/\d\.\s*/).filter(Boolean).map(h => h.trim());
+                        if (newHints.length > 0) {
+                            currentHints = newHints;
                             hintsAvailable = true;
                         }
                     }
