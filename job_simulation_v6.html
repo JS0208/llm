@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>직업 시뮬레이션 Pro (수정 버전)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .fade-in { animation: a-fade-in 0.5s ease-out forwards; }
+        .fade-out { animation: a-fade-out 0.3s ease-in forwards; }
+        .message-bubble-in { animation: a-message-bubble-in 0.4s ease-out forwards; }
+        @keyframes a-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes a-fade-out { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes a-message-bubble-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .loading-dots span { animation: a-dot-pulse 1.4s infinite; display: inline-block; opacity: 0; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes a-dot-pulse { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-100 flex justify-center items-center h-screen p-4">
+
+    <div id="app-container" class="w-full max-w-lg h-full bg-white flex flex-col shadow-2xl rounded-2xl overflow-hidden ring-1 ring-gray-900/5">
+
+        <!-- 화면 1: 시나리오 선택 -->
+        <div id="selection-screen" class="flex flex-col h-full">
+            <header class="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-5 flex-shrink-0 shadow-lg">
+                <h1 class="text-2xl font-bold text-center">직업 시뮬레이션 Pro</h1>
+                <p class="text-center text-sm text-gray-300 mt-1">체험할 직업을 선택하세요.</p>
+            </header>
+            <main id="scenario-list" class="flex-grow p-3 sm:p-5 overflow-y-auto bg-gray-50 space-y-3"></main>
+        </div>
+
+        <!-- 화면 2: 시뮬레이션 (채팅) -->
+        <div id="simulation-screen" class="hidden flex-col h-full">
+            <header id="simulation-header" class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 flex-shrink-0 flex items-center shadow-md">
+                <button id="back-to-selection" class="p-2 mr-2 rounded-full hover:bg-white/20 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h1 id="simulation-title" class="text-xl font-bold text-center flex-grow"></h1>
+                <div class="w-10"></div>
+            </header>
+            <main id="chat-window" class="flex-grow p-4 overflow-y-auto bg-white"></main>
+            <footer class="flex-shrink-0 p-3 bg-gray-50 border-t">
+                <div id="hint-buttons-container" class="flex flex-wrap justify-center gap-2 mb-2"></div>
+                <form id="message-form" class="flex items-center space-x-3">
+                    <button type="button" id="show-hints-button" title="추천 답변 보기" class="p-3 border rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 017.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                    </button>
+                    <input type="text" id="message-input" placeholder="어떻게 행동하시겠습니까?" class="flex-grow p-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" autocomplete="off">
+                    <button type="submit" id="submit-button" class="bg-blue-600 text-white rounded-full p-3 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 transform hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </form>
+            </footer>
+        </div>
+
+        <!-- 화면 3: 성향 분석 결과 -->
+        <div id="analysis-screen" class="hidden flex-col h-full">
+            <header class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-4 flex-shrink-0 shadow-md">
+                <h1 class="text-xl font-bold text-center w-full">플레이어 성향 분석 결과</h1>
+            </header>
+            <main class="flex-grow p-4 overflow-y-auto bg-white space-y-4">
+                <h2 id="analysis-summary" class="text-center text-lg font-semibold"></h2>
+                <canvas id="analysis-chart" class="w-full max-w-md mx-auto"></canvas>
+                <ul id="analysis-desc" class="text-sm space-y-1"></ul>
+            </main>
+            <footer class="flex-shrink-0 p-3 bg-gray-50 border-t">
+                <button id="analysis-back" class="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-900 transition-transform transform hover:scale-105">메인으로 돌아가기</button>
+            </footer>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            // DOM 요소 캐싱
+            const selectionScreen = document.getElementById('selection-screen');
+            const simulationScreen = document.getElementById('simulation-screen');
+            const analysisScreen = document.getElementById('analysis-screen');
+            const scenarioList = document.getElementById('scenario-list');
+            const chatWindow = document.getElementById('chat-window');
+            const messageForm = document.getElementById('message-form');
+            const messageInput = document.getElementById('message-input');
+            const simulationTitle = document.getElementById('simulation-title');
+            const backButton = document.getElementById('back-to-selection');
+            const analysisBackButton = document.getElementById('analysis-back');
+            const submitButton = document.getElementById('submit-button');
+            const hintButtonsContainer = document.getElementById('hint-buttons-container');
+            const showHintsButton = document.getElementById('show-hints-button');
+            const analysisSummary = document.getElementById('analysis-summary');
+            const analysisChartCanvas = document.getElementById('analysis-chart');
+            const analysisDesc = document.getElementById('analysis-desc');
+
+            const API_KEY = "AIzaSyCztDXmWRRAiyjRPaWNRLaKGltDKUdJ0YA"; 
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
+
+            const SYSTEM_PROMPT = `당신은 플레이어의 직업 라이프를 한 편의 흥미진진한 드라마로 만드는 '게임 마스터'입니다. 당신의 미션은 플레이어의 선택이 어떤 파란만장한 결과를 낳을지, 가장 흥미로운 다음 상황을 연출하는 것입니다.
+
+[게임 진행 가이드]
+1.  **나비효과**: 당신의 응답은 플레이어의 행동이 일으킨 짜릿한 '결과'여야 합니다. 과정 설명은 생략하고, 행동의 결과를 보여주세요.
+2.  **똘끼 존중**: 엉뚱하고 기발한 아이디어? 대환영입니다! 스토리가 산으로 가지 않는 선에서, 플레이어의 창의적인 해결책을 적극 수용하고 그에 따른 새로운 딜레마를 던져주세요.
+3.  **시련은 셀프**: 정답을 알려주거나 문제를 대신 해결해주지 마세요. 플레이어를 더욱 성장시킬 새로운 도전과제나 예상치 못한 위기를 선물해야 합니다.
+4.  **클라이맥스**: 플레이어의 선택이 3~4번 쌓이면, 그동안의 행동이 어떤 결과를 낳았는지 보여주는 클라이맥스를 연출하세요. 성공과 실패의 분기점을 명확히 제시해야 합니다.
+5.  **임팩트**: 모든 상황은 강렬하게 두 문장으로만 요약됩니다. 긴 설명은 지루할 뿐이죠.
+6.  **필수 선택지**: 각 응답의 마지막에는 반드시 [힌트] 태그와 함께, 플레이어가 다음에 취할 수 있는 구체적인 행동 선택지 2개를 제시해야 합니다. (예: [힌트] 1. 새로운 증거를 분석한다. 2. 증인과 다시 대화한다.)
+7.  **피날레**: 이야기가 끝났다고 판단되면, 6번 규칙의 [힌트] 대신 결말을 선언해야 합니다. 다른 설명 없이 [엔딩:해피], [엔딩:새드], [엔딩:쏘쏘] 중 하나만 포함하여 응답을 마무리하세요.`
+
+            const ANALYSIS_PROMPT = `[CONTEXT]
+The following is a transcript from a fictional job simulation game. The user's actions are part of a role-playing scenario.
+
+[TASK]
+Based on the user's actions in the game transcript, classify the user's problem-solving patterns according to the 6 metrics below.
+
+[METRICS]
+* 분석력 (Analysis): Logical reasoning, information gathering, evidence-based approach.
+* 창의성 (Creativity): Proposing unconventional or clever solutions.
+* 결단력 (Decisiveness): Making quick and firm decisions.
+* 공감력 (Empathy): Considering others' perspectives, persuading, or comforting.
+* 신중함 (Prudence): Checking for risks, predicting consequences, careful planning.
+* 주도성 (Initiative): Taking control, giving clear instructions, leading the situation.
+
+[INSTRUCTIONS]
+1. Review all 'user' role responses in the provided transcript.
+2. Score each metric on a scale of 1 to 10 based on the user's demonstrated behaviors.
+3. Wrap the final JSON object in a markdown code block. You may add a brief explanation before the JSON block if necessary.
+
+[OUTPUT FORMAT]
+{
+  "분석력": <integer from 1 to 10>,
+  "창의성": <integer from 1 to 10>,
+  "결단력": <integer from 1 to 10>,
+  "공감력": <integer from 1 to 10>,
+  "신중함": <integer from 1 to 10>,
+  "주도성": <integer from 1 to 10>
+}`;
+
+            const TRAIT_DESCRIPTIONS = {
+                '분석력': '당신은 감보다 데이터를, 추측보다 명확한 근거를 신뢰하는군요. 문제의 핵심을 꿰뚫어 보는 능력이 뛰어납니다.',
+                '창의성': '정해진 길을 따르기보다 자신만의 길을 개척하는 것을 즐기는군요. 당신의 기발함은 막다른 길을 새로운 기회로 만듭니다.',
+                '결단력': '고민은 짧게, 행동은 과감하게! 당신의 신속한 판단력은 위기 상황에서 특히 빛을 발합니다.',
+                '공감력': '당신은 사람의 마음을 움직이는 힘을 알고 있습니다. 논리만으로는 해결할 수 없는 문제를 푸는 열쇠를 쥐고 있군요.',
+                '신중함': '돌다리도 두들겨 보고 건너는 당신의 신중함은 치명적인 실수를 방지하는 가장 강력한 무기입니다.',
+                '주도성': '당신은 방관자가 아닌 지휘자가 되는 것을 선택하는군요. 명확한 목표를 향해 주변을 이끄는 힘이 있습니다.'
+            };
+            let conversationHistory = [];
+            let currentHints = [];
+            let currentScenario = null;
+            let isGameEnded = false;
+            let analysisChartInstance = null;
+
+            // 시나리오 데이터 (기존과 동일)
+            const scenarios = [
+                {
+                    id: `chef`,
+                    title: `★스타 셰프의 침공★`,
+                    description: `저 명성만 믿고 들어온 스타 셰프 때문에, 내 가게 단골들이 하나둘 떠나갑니다. 이대로 가게를 뺏길 순 없죠!`,
+                    initialPrompt: `당신은 작은 동네 맛집 '라 루나'의 오너 셰프, 박선우입니다. 그런데 하필 길 건너편에 TV 스타 셰프 '에드워드 강'이 번쩍이는 레스토랑을 열었습니다. 파리 날리던 가게에 이제는 거미줄 칠 기세, 이 위기를 어떻게 돌파하시겠습니까?`,
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg>`,
+                    imageUrl: `https://images.unsplash.com/photo-1555243896-c709bfa0b564?q=80&w=1200&auto=format&fit=crop`,
+                    initialHints: [`주변 상인들의 반응을 살핀다.`, `우리 식당만의 필살기 메뉴를 개발한다.`],
+                    endings: {
+                        '해피': `대결은 완벽한 해피엔딩! 당신의 뚝심과 창의력에 라이벌 셰프도 두 손 들었습니다. 이제 두 가게는 서로를 성장시키는 동네의 자랑거리가 되었습니다.`,
+                        '새드': `스타 셰프의 벽은 높았습니다. 결국 텅 빈 가게를 보며 쓸쓸히 앞치마를 풀어야 했습니다. 꿈은 때로 현실 앞에서 접어야 할 때도 있는 법이죠.`,
+                        '쏘쏘': `신메뉴 덕에 단골 몇몇은 돌아왔지만, 여전히 저쪽은 문전성시. 가게를 지켜낸 건 다행이지만, 이 아슬아슬한 줄타기는 언제까지 계속될까요?`
+                    }
+                },
+                {
+                    id: `paramedic`,
+                    title: `아수라장 속, 울리는 사이렌`,
+                    description: `당신은 아수라장이 된 대형 사고 현장의 첫 번째 구급대원. 추가 지원까지 10분, 수많은 생명이 당신의 손에 달렸습니다.`,
+                    initialPrompt: `당신은 119 구급대원 김민준, 무전이 다급하게 울립니다. 대형 추돌사고 현장에 가장 먼저 도착하니, 여기저기서 고통스러운 신음이 터져 나오고 한 차량에선 연기가 피어오릅니다. 지원팀 도착까지 남은 10분, 골든타임을 어떻게 지켜내시겠습니까?`,
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" /></svg>`,
+                    imageUrl: `https://images.unsplash.com/photo-1713623311317-d3c43a4be4cf?q=80&w=1674&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
+                    initialHints: [`현장 상황을 즉시 지휘 본부에 보고한다.`, `가장 위급해 보이는 부상자에게 먼저 다가간다.`],
+                    endings: {
+                        '해피': `완벽한 골든타임 확보! 당신의 침착하고 정확한 판단이 수많은 생명을 구했습니다. 동료들의 찬사가 쏟아지는 가운데, 당신은 진정한 영웅이 되었습니다.`,
+                        '새드': `혼돈 속에서 판단의 무게는 너무나 무거웠습니다. 당신의 최선에도 불구하고, 일부 부상자의 상태가 악화되는 것을 막지 못했습니다. 무력감과 안타까움이 어깨를 짓누릅니다.`,
+                        '쏘쏘': `최악은 막았지만, 최고는 되지 못했습니다. 몇몇을 구하는 사이 다른 부상자들의 골든타임이 흘러갔습니다. 지원팀 덕에 상황은 수습됐지만, '만약'이라는 아쉬움이 머릿속을 떠나지 않습니다.`
+                    }
+                },
+                {
+                    id: `lawyer`,
+                    title: `스모킹 건, 조작된 진실?`,
+                    description: `누가 봐도 억울한 내 의뢰인. 그런데 그의 지문이 묻은 범행 도구가 결정적 증거로 나왔습니다. 남은 시간은 단 하루!`,
+                    initialPrompt: `당신은 승률 99%의 형사 전문 변호사, 이하은입니다. 이번엔 억울하게 절도범으로 몰린 청년을 변호하고 있죠. 그의 무죄를 확신했지만, 방금 검찰이 의뢰인의 지문이 묻은 칼을 '스모킹 건'으로 제출했습니다. 의뢰인은 절망했고, 재판은 바로 내일입니다. 당신은 어떻게 이 판을 뒤집으시겠습니까?`,
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l-6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2" /></svg>`,
+                    imageUrl: `https://plus.unsplash.com/premium_photo-1698084059560-9a53de7b816b?q=80&w=1711&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
+                    initialHints: [`증거가 조작되었을 가능성을 제기한다.`, `의뢰인을 만나 다시 한번 상황을 들어본다.`],
+                    endings: {
+                        '해피': `"이의 있습니다!" 당신의 끈질긴 추적이 결정적 증거가 조작되었음을 밝혀냈습니다. 법정에서 펼쳐진 대역전극으로, 당신은 의뢰인의 누명을 완벽히 벗겼습니다.`,
+                        '새드': `결정적인 증거를 뒤집지 못한 채, 의뢰인에게 유죄가 선고되었습니다. 법정을 나서며, 변호사로서의 깊은 무력감과 패배감을 느낍니다.`,
+                        '쏘쏘': `증거의 허점을 파고들어 '합리적 의심'을 이끌어내는 데 성공했습니다. 무죄는 아니지만, 감형을 받아내며 최악의 상황은 피했습니다.`
+                    }
+                },
+                {
+                    id: `teacher`,
+                    title: `우리 반에 무슨 일이?`,
+                    description: `조용하던 우리 반에서 따돌림이 일어나고 있습니다. 섣불리 개입하면 문제는 더 커질 수 있습니다.`,
+                    initialPrompt: `당신은 초등학교 3학년 2반 담임, 정다솜입니다. 쉬는 시간, 한 아이가 울면서 찾아와 친구들이 자신을 놀리고 끼워주지 않는다고 고백했습니다. 주동자로 지목된 아이들은 평소엔 그저 해맑던 아이들입니다. 이 작은 사회의 갈등을 어떻게 해결해야 할까요?`,
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>`,
+                    imageUrl: `https://images.unsplash.com/photo-1588075592446-265fd1e6e76f?q=80&w=1200&auto=format&fit=crop`,
+                    initialHints: [`다른 학생들의 증언을 조용히 확보한다.`, `가해 학생과 피해 학생을 따로따로 상담한다.`],
+                    endings: {
+                        '해피': `당신의 세심한 노력으로 아이들은 서로의 마음을 이해하게 되었습니다. 교실에는 다시 웃음꽃이 피었고, 아이들은 함께 성장했습니다.`,
+                        '새드': `섣부른 훈계는 오히려 아이들의 마음에 상처만 남겼습니다. 따돌림은 더 교묘해졌고, 문제는 수면 아래로 가라앉아 해결하기 더욱 어려워졌습니다.`,
+                        '쏘쏘': `일단 급한 불은 껐지만, 아이들 사이의 서먹한 공기는 여전합니다. 직접적인 괴롭힘은 사라졌지만, 보이지 않는 벽이 생긴 것 같아 마음이 무겁습니다.`
+                    }
+                },
+                {
+                    id: `archaeologist`,
+                    title: `전설의 유물과 무너지는 유적`,
+                    description: `전설 속 유물을 손에 넣은 순간, 유적이 무너지기 시작합니다! 목숨이냐, 세기의 발견이냐, 선택의 시간입니다.`,
+                    initialPrompt: `당신은 자타공인 최고의 고고학자, '인디아나' 정. 마침내 안데스 산맥 깊은 곳에서 전설의 유물 '태양의 눈물'을 발견했습니다! 하지만 유물을 집어 든 순간, 사방이 흔들리며 유적이 통째로 무너지기 시작합니다. 당신은 어떻게 행동하시겠습니까?`,
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>`,
+                    imageUrl: `https://images.unsplash.com/photo-1592488831370-fe3692a465a3?q=80&w=2073&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
+                    initialHints: [`유물 대신 비슷한 무게의 돌멩이를 올려놓는다.`, `함정이 없는 다른 탈출 경로를 미친듯이 찾는다.`],
+                    endings: {
+                        '해피': `이게 바로 주인공! 당신은 영화처럼 함정을 돌파하여 '태양의 눈물'을 손에 넣고 무사히 탈출했습니다. 당신의 이름은 역사와 전설에 영원히 기록될 것입니다.`,
+                        '새드': `세기의 발견을 눈앞에 두고 욕심이 과했습니다. 결국 무너지는 유적과 함께, 당신과 '태양의 눈물'은 다시 세상에서 잊혀졌습니다.`,
+                        '쏘쏘': `유물을 가지고는 나갈 수 없다는 걸 깨닫고 눈물을 머금고 후퇴했습니다. 목숨은 건졌지만, '태양의 눈물'은 다시 어둠 속에 잠겼습니다. 발견은 미완으로 남았습니다.`
+                    }
+                }
+            ];
+
+            // 함수 선언
+            function renderSelectionScreen() {
+                scenarioList.innerHTML = '';
+                scenarios.forEach((scenario, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'start-button bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-center space-x-4 cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-500 transition-all duration-300 transform hover:-translate-y-1 fade-in';
+                    card.dataset.scenarioId = scenario.id;
+                    card.style.animationDelay = `${index * 100}ms`;
+                    card.innerHTML = `
+                        <div class="flex-shrink-0 bg-gray-100 p-3 rounded-full">${scenario.icon}</div>
+                        <div class="flex-grow">
+                            <h3 class="text-lg font-bold text-gray-800">${scenario.title}</h3>
+                            <p class="text-sm text-gray-500">${scenario.description}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </div>`;
+                    scenarioList.appendChild(card);
+                });
+            }
+            
+            function startSimulation(scenarioId) {
+                const scenario = scenarios.find(s => s.id === scenarioId);
+                if (!scenario) return;
+
+                currentScenario = scenario;
+                isGameEnded = false; 
+                selectionScreen.classList.add('fade-out');
+                setTimeout(() => {
+                    selectionScreen.classList.add('hidden');
+                    selectionScreen.classList.remove('fade-out');
+                    chatWindow.innerHTML = '';
+                    conversationHistory = [];
+                    currentHints = scenario.initialHints || [];
+                    simulationTitle.textContent = scenario.title;
+                    
+                    simulationScreen.classList.remove('hidden');
+                    simulationScreen.classList.add('flex', 'fade-in');
+
+                    if (scenario.imageUrl) {
+                        addImageMessage(scenario.imageUrl);
+                    }
+                    addMessage(scenario.initialPrompt);
+                    conversationHistory.push({ role: "model", parts: [{ text: scenario.initialPrompt }] });
+                    toggleInput(true, currentHints.length > 0, false);
+                    messageInput.focus();
+                }, 300);
+            }
+            
+            function resetAndShowSelection() {
+                simulationScreen.classList.add('fade-out');
+                analysisScreen.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    simulationScreen.classList.add('hidden');
+                    simulationScreen.classList.remove('flex', 'fade-out', 'fade-in');
+                    analysisScreen.classList.add('hidden');
+                    analysisScreen.classList.remove('flex', 'fade-out', 'fade-in');
+                    selectionScreen.classList.remove('hidden');
+                    selectionScreen.classList.add('fade-in');
+
+                    messageInput.value = '';
+                    isGameEnded = false; 
+                    
+                    // --- BUG FIX: 명시적인 힌트 컨테이너 초기화 ---
+                    hintButtonsContainer.innerHTML = ''; 
+                    
+                    toggleInput(false, false, false); 
+
+                    analysisDesc.innerHTML = '';
+                    analysisSummary.textContent = '';
+                    if (analysisChartInstance) {
+                        analysisChartInstance.destroy();
+                        analysisChartInstance = null;
+                    }
+                }, 300);
+            }
+
+            function addImageMessage(url) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex justify-center mb-4 message-bubble-in';
+                wrapper.innerHTML = `<div class="w-full max-w-md rounded-xl overflow-hidden shadow-lg bg-gray-200"><img src="${url}" alt="시나리오 이미지" loading="lazy" class="w-full h-auto object-cover" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=&quot;p-4 text-center text-red-500&quot;>이미지를 불러올 수 없습니다.</div>';"></div>`;
+                chatWindow.appendChild(wrapper);
+                scrollToBottom();
+            }
+            
+            function addMessage(text, isUser = false) {
+                const wrapper = document.createElement('div');
+                wrapper.className = `flex mb-4 message-bubble-in ${isUser ? 'justify-end' : 'justify-start'}`;
+                wrapper.innerHTML = `<div class="rounded-2xl py-2.5 px-4 max-w-[85%] sm:max-w-[80%] break-words shadow-sm ${isUser ? 'bg-blue-600 text-white rounded-br-lg' : 'bg-gray-200 text-gray-800 rounded-bl-lg'}">${text.replace(/\n/g, '<br>')}</div>`;
+                chatWindow.appendChild(wrapper);
+                scrollToBottom();
+            }
+            
+            function toggleLoadingIndicator(show) {
+                let loadingEl = document.getElementById('loading-indicator');
+                if (show) {
+                    if (!loadingEl) {
+                        loadingEl = document.createElement('div');
+                        loadingEl.id = 'loading-indicator';
+                        loadingEl.className = 'flex justify-start mb-4 message-bubble-in';
+                        loadingEl.innerHTML = `<div class="rounded-2xl rounded-bl-lg py-2.5 px-4 bg-gray-200"><div class="loading-dots"><span>●</span><span>●</span><span>●</span></div></div>`;
+                        chatWindow.appendChild(loadingEl);
+                        scrollToBottom();
+                    }
+                } else {
+                    if (loadingEl) loadingEl.remove();
+                }
+            }
+            
+            function displayHintButtons() {
+                hintButtonsContainer.innerHTML = '';
+                if (!currentHints || currentHints.length === 0 || isGameEnded) return;
+
+                currentHints.forEach(hint => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'hint-button bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded-full hover:bg-gray-300 transition-colors fade-in';
+                    button.textContent = hint;
+                    button.onclick = () => {
+                        messageInput.value = hint;
+                        messageInput.focus();
+                        hintButtonsContainer.innerHTML = ''; 
+                    };
+                    hintButtonsContainer.appendChild(button);
+                });
+            }
+
+            function addEndingMessage(text, type) {
+                const typeInfo = {
+                    '해피': { icon: '🎉', color: 'text-green-600', border: 'border-green-400' },
+                    '새드': { icon: '☠️', color: 'text-red-600', border: 'border-red-400' },
+                    '쏘쏘': { icon: '⚖️', color: 'text-gray-600', border: 'border-gray-400' }
+                }[type] || { icon: '❓', color: 'text-gray-600', border: 'border-gray-400' };
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = `ending-card-wrapper my-4 p-4 flex justify-center message-bubble-in`;
+                wrapper.innerHTML = `
+                    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 text-center border-t-8 ${typeInfo.border}">
+                        <div class="text-6xl mb-4">${typeInfo.icon}</div>
+                        <h2 class="text-3xl font-bold ${typeInfo.color} mb-3">시나리오 완료: ${type}</h2>
+                        <p class="text-gray-700 text-lg mb-8">${text}</p>
+                        <div class="space-y-2">
+                            <button class="analysis-button w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600">성향 분석하기</button>
+                            <button class="restart-button w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-900 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-800">새로운 시나리오 시작하기</button>
+                        </div>
+                    </div>`;
+
+                wrapper.querySelector('.restart-button').addEventListener('click', resetAndShowSelection);
+                wrapper.querySelector('.analysis-button').addEventListener('click', startAnalysis);
+                
+                chatWindow.appendChild(wrapper);
+                scrollToBottom();
+            }
+            
+            // --- BUG FIX: `toggleInput` 함수에서 힌트 컨테이너를 직접 제어하는 로직 제거 ---
+            function toggleInput(mainInputEnabled, hintsAvailable, isLoading = false) {
+                const isInputDisabled = !mainInputEnabled || isGameEnded;
+                
+                messageInput.disabled = isInputDisabled;
+                submitButton.disabled = isInputDisabled;
+                showHintsButton.disabled = !hintsAvailable || isGameEnded;
+
+                // 이 함수는 더 이상 힌트 버튼을 직접 숨기지 않습니다.
+                // if (isInputDisabled || !hintsAvailable) {
+                //     hintButtonsContainer.innerHTML = '';
+                // }
+                
+                if (isGameEnded) {
+                    messageInput.placeholder = "게임이 종료되었습니다.";
+                } else if (isLoading) {
+                    messageInput.placeholder = "답변을 생성 중입니다...";
+                } else {
+                    messageInput.placeholder = "어떻게 행동하시겠습니까?";
+                }
+            }
+
+            async function getLlmResponse() {
+                if (!API_KEY || API_KEY === "여기에_발급받은_API_키를_입력하세요") { 
+                    addMessage("오류: API 키가 설정되지 않았습니다. 스크립트 상단의 API_KEY 변수에 자신의 API 키를 입력해주세요."); 
+                    toggleInput(true, false, false);
+                    return; 
+                }
+                
+                // --- BUG FIX: 로딩 상태 진입 시 현재 힌트 상태를 유지하도록 수정 ---
+                const hintsAreCurrentlyAvailable = currentHints.length > 0;
+                toggleInput(false, hintsAreCurrentlyAvailable, true);
+                toggleLoadingIndicator(true);
+                
+                try {
+                    const response = await fetch(API_URL, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ 
+                            systemInstruction: { role: "model", parts: [{ text: SYSTEM_PROMPT }] }, 
+                            contents: conversationHistory 
+                        }) 
+                    });
+
+                    toggleLoadingIndicator(false);
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API 오류: ${response.status} - ${errorData.error?.message || '알 수 없는 오류'}`);
+                    }
+
+                    const data = await response.json();
+                    const llmText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "오류: 응답을 생성하지 못했습니다.";
+                    
+                    const endingMatch = llmText.match(/\[엔딩:(해피|새드|쏘쏘)\]/);
+
+                    if (endingMatch && currentScenario) {
+                        const storyTextBeforeEnding = llmText.replace(endingMatch[0], '').trim();
+                        const endingType = endingMatch[1];
+                        const endingText = currentScenario.endings[endingType] || "시나리오가 마무리되었습니다.";
+                        
+                        if (storyTextBeforeEnding) {
+                            addMessage(storyTextBeforeEnding);
+                            conversationHistory.push({ role: "model", parts: [{ text: storyTextBeforeEnding }] });
+                        }
+
+                        isGameEnded = true;
+                        addEndingMessage(endingText, endingType);
+                        toggleInput(false, false, false);
+                        return;
+                    }
+
+                    const hintSplit = llmText.split('[힌트]');
+                    const storyText = hintSplit[0].trim();
+                    
+                    if(storyText) {
+                        addMessage(storyText);
+                        conversationHistory.push({ role: "model", parts: [{ text: storyText }] });
+                    }
+
+                    let hintsAvailable = false;
+                    currentHints = [];
+                    if (hintSplit.length > 1) {
+                        currentHints = hintSplit[1].trim().split(/\d\.\s*/).filter(Boolean).map(h => h.trim());
+                        if (currentHints.length > 0) {
+                            hintsAvailable = true;
+                        }
+                    }
+                    
+                    // --- BUG FIX: 새 힌트가 없을 경우 명시적으로 힌트 컨테이너 비우기 ---
+                    if (!hintsAvailable) {
+                        hintButtonsContainer.innerHTML = '';
+                    }
+
+                    toggleInput(true, hintsAvailable, false);
+                    messageInput.focus();
+
+                } catch (error) {
+                    toggleLoadingIndicator(false);
+                    // 에러 발생 시 입력은 다시 활성화하되, 힌트는 없다고 가정
+                    toggleInput(true, false);
+                    addMessage(`치명적인 오류가 발생했습니다: ${error.message}`);
+                }
+            }
+            
+            function scrollToBottom() {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+
+            function parseScores(text) {
+                if (!text) return {};
+
+                let jsonString = text.trim();
+
+                // Handle markdown code blocks (e.g., ```json\n{...}\n```)
+                const markdownMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                if (markdownMatch && markdownMatch[1]) {
+                    jsonString = markdownMatch[1].trim();
+                }
+
+                // Find the first '{' and the last '}' to extract the JSON object
+                const jsonStartIndex = jsonString.indexOf('{');
+                const jsonEndIndex = jsonString.lastIndexOf('}');
+
+                if (jsonStartIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+                    jsonString = jsonString.substring(jsonStartIndex, jsonEndIndex + 1);
+                }
+
+                // Try to parse the cleaned string
+                try {
+                    // It might still fail if the content is not valid JSON
+                    return JSON.parse(jsonString);
+                } catch (e) {
+                    console.error("Failed to parse extracted JSON:", e);
+                    console.error("Original text received from API:", text);
+                    return {}; // Return empty object on failure
+                }
+            }
+
+            async function startAnalysis() {
+                simulationScreen.classList.add('hidden');
+                analysisScreen.classList.remove('hidden');
+                analysisScreen.classList.add('flex', 'fade-in');
+                analysisSummary.textContent = '당신의 성향을 분석 중입니다...';
+                analysisDesc.innerHTML = '';
+                if (analysisChartInstance) {
+                    analysisChartInstance.destroy();
+                    analysisChartInstance = null;
+                }
+
+                if (!API_KEY || API_KEY.includes("여기에_발급받은_API_키를_입력하세요")) {
+                    renderAnalysis({}, "API 키가 유효하지 않습니다. 스크립트 상단의 API_KEY 변수를 확인해주세요.");
+                    return;
+                }
+
+                const hasUserResponses = conversationHistory.some(h => h.role === 'user');
+                if (!hasUserResponses) {
+                    renderAnalysis({}, "플레이어의 응답 기록이 없어 분석할 수 없습니다.");
+                    return;
+                }
+
+                const maxRetries = 2;
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                systemInstruction: { role: 'model', parts: [{ text: ANALYSIS_PROMPT }] },
+                                contents: conversationHistory,
+                                safetySettings: [
+                                    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                                    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                                    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                                    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+                                ]
+                            })
+                        });
+
+                        console.log("===== [1] API 응답 상태 =====");
+                        console.log(`- 상태 코드 (Status): ${response.status}`);
+                        console.log(`- 상태 정상 여부 (OK): ${response.ok}`);
+
+                        const responseData = await response.json();
+                        console.log("===== [2] API 응답 전체 데이터 =====");
+                        console.log(responseData);
+
+                        if (!response.ok) {
+                            throw new Error(`API 서버가 오류를 반환했습니다. (상태 코드: ${response.status})`);
+                        }
+
+                        if (!responseData.candidates || responseData.candidates.length === 0) {
+                            console.error("API가 정상 응답했지만, 생성된 결과(candidates)가 없습니다. Safety Settings에 의해 차단되었을 수 있습니다.");
+                            // 'promptFeedback'이 있다면 그 내용도 출력
+                            if (responseData.promptFeedback) {
+                                console.log("차단 원인 (Prompt Feedback):", responseData.promptFeedback);
+                            }
+                            throw new Error("API가 분석 결과를 생성하지 못했습니다. 응답 데이터에 'candidates'가 없습니다.");
+                        }
+
+                        const jsonText = responseData.candidates[0]?.content?.parts[0]?.text || '[[응답 텍스트 없음]]';
+                        console.log("===== [3] AI가 생성한 텍스트 원본 =====");
+                        console.log(jsonText);
+
+                        const scores = parseScores(jsonText);
+                        renderAnalysis(scores);
+                        return; // 성공했으므로 루프 종료
+
+                    } catch (e) {
+                        console.error("!!!!! 치명적인 분석 오류 발생 !!!!!");
+                        console.error(e);
+                        if (attempt >= maxRetries) {
+                            renderAnalysis({}, `분석 중 오류가 발생했습니다: ${e.message}`);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            function renderAnalysis(scores, errorMessage = null) {
+                let finalScores = scores;
+                let isFallback = false;
+
+                const defaultTraitKeys = ['분석력', '창의성', '결단력', '공감력', '신중함', '주도성'];
+                const labels = Object.keys(scores);
+                
+                if (errorMessage || labels.length === 0 || !defaultTraitKeys.every(k => labels.includes(k)) || Object.values(scores).some(v => typeof v !== 'number' || isNaN(v))) {
+                    isFallback = true;
+                    let reason = '게임 플레이 기록이 부족하거나 AI 응답이 불안정하여 분석에 실패했습니다.';
+                    if (errorMessage) {
+                        reason = `오류가 발생했습니다: ${errorMessage}`;
+                    }
+                    analysisSummary.textContent = '분석 실패: 기본 결과 표시';
+                    analysisDesc.innerHTML = `<li class="text-red-600 p-2 bg-red-50 rounded-md">${reason}</li>`;
+                    
+                    finalScores = {
+                        '분석력': 5, '창의성': 5, '결단력': 5,
+                        '공감력': 5, '신중함': 5, '주도성': 5
+                    };
+                }
+
+                const finalLabels = Object.keys(finalScores);
+                const values = Object.values(finalScores);
+                
+                if (!isFallback) {
+                    const highestKey = finalLabels.reduce((a, b) => finalScores[a] > finalScores[b] ? a : b);
+                    const summaryMap = {
+                        '분석력': "명석한 '분석가'",
+                        '창의성': "독창적인 '창조자'",
+                        '결단력': "과감한 '행동가'",
+                        '공감력': "따뜻한 '조력자'",
+                        '신중함': "신중한 '전략가'",
+                        '주도성': "대담한 '리더'"
+                    };
+                    analysisSummary.textContent = `당신은 ${summaryMap[highestKey] || highestKey} 유형의 해결사입니다.`;
+                    analysisDesc.innerHTML = finalLabels.map(k => `<li><strong class="text-indigo-600">${k}</strong>: ${TRAIT_DESCRIPTIONS[k] || '설명이 없습니다.'}</li>`).join('');
+                }
+
+                if (analysisChartInstance) {
+                    analysisChartInstance.destroy();
+                }
+                analysisChartInstance = new Chart(analysisChartCanvas, {
+                    type: 'radar',
+                    data: {
+                        labels: finalLabels,
+                        datasets: [{
+                            label: '성향 점수',
+                            data: values,
+                            backgroundColor: isFallback ? 'rgba(107, 114, 128, 0.2)' : 'rgba(99, 102, 241, 0.2)',
+                            borderColor: isFallback ? 'rgba(107, 114, 128, 1)' : 'rgba(99, 102, 241, 1)',
+                            pointBackgroundColor: isFallback ? 'rgba(107, 114, 128, 1)' : 'rgba(99, 102, 241, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: isFallback ? 'rgba(107, 114, 128, 1)' : 'rgba(99, 102, 241, 1)'
+                        }]
+                    },
+                    options: { 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { 
+                            r: { 
+                                suggestedMin: 0, 
+                                suggestedMax: 10,
+                                grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                                angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
+                                pointLabels: { font: { size: 14 } }
+                            } 
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 이벤트 리스너
+            scenarioList.addEventListener('click', (e) => { 
+                const startButton = e.target.closest('.start-button'); 
+                if (startButton) { 
+                    startSimulation(startButton.dataset.scenarioId); 
+                } 
+            });
+
+            messageForm.addEventListener('submit', (e) => { 
+                e.preventDefault(); 
+                const userInput = messageInput.value.trim(); 
+                if (userInput && !messageInput.disabled) {
+                    hintButtonsContainer.innerHTML = '';
+                    addMessage(userInput, true); 
+                    conversationHistory.push({ role: "user", parts: [{ text: userInput }] }); 
+                    messageInput.value = ''; 
+                    getLlmResponse(); 
+                } 
+            });
+
+            showHintsButton.addEventListener('click', () => {
+                displayHintButtons();
+            });
+
+            backButton.addEventListener('click', resetAndShowSelection);
+            analysisBackButton.addEventListener('click', resetAndShowSelection);
+
+            // 초기화
+            renderSelectionScreen(); 
+            toggleInput(false, false); 
+
+        } catch (error) {
+            console.error("스크립트 실행 중 치명적인 오류 발생:", error);
+            document.body.innerHTML = `<div class="p-4 text-center text-red-600 bg-red-50 rounded-lg">
+                <h2 class="text-xl font-bold mb-2">런타임 오류 발생</h2>
+                <p class="mb-4">애플리케이션 실행 중 심각한 오류가 발생했습니다. 개발자 콘솔을 확인해주세요.</p>
+                <pre class="text-left bg-gray-100 p-2 rounded text-sm text-gray-700 whitespace-pre-wrap">${error.stack}</pre>
+            </div>`;
+        }
+    });
+</script>
+</body>
+</html>
